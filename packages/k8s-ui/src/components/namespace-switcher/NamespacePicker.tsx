@@ -4,6 +4,7 @@ import { ChevronDown, Globe, Search, AlertTriangle } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Tooltip } from '../ui/Tooltip'
 import { MultiSelectPicker } from '../ui/MultiSelectPicker'
+import { ReactNode } from 'react'
 
 /**
  * Backend-reported namespace scope. Mirrors Radar's `/cluster/namespace-scope`
@@ -57,6 +58,8 @@ export interface NamespacePickerProps {
   variant?: 'chip' | 'segment'
   /** Muted label shown before the value in the 'segment' variant (e.g. "Namespace"). */
   label?: string
+  
+  limitedListHelp?: ReactNode
 }
 
 /**
@@ -79,7 +82,7 @@ export interface NamespacePickerProps {
  * onApply. "Clear all" applies immediately and closes.
  */
 export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePickerProps>(function NamespacePicker(
-  { scope, onApply, loading = false, pending = false, disabled = false, disabledTooltip, className = '', variant = 'chip', label },
+  { scope, onApply, loading = false, pending = false, disabled = false, disabledTooltip, className = '', variant = 'chip', label, limitedListHelp },
   ref,
 ) {
   const [isOpen, setIsOpen] = useState(false)
@@ -201,7 +204,8 @@ export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePicker
   const triggerLabel =
     activeCount === 0 ? 'All namespaces' : activeCount === 1 ? scopeActives[0] : `${activeCount} namespaces`
   const isClusterWide = activeCount === 0
-  const restrictedHint = scope.mode === 'restricted'
+  const isAuthoritative = scope.authoritative ?? true
+  const emptyStateLabel = !isAuthoritative ? 'No namespaces known yet - see below.' : 'No namespaces available'
   const cacheScopeLocked = scope.cacheScoped && !scope.namespaceRescope
   const isDisabled = disabled || loading || pending || cacheScopeLocked
   const canClearAll = scope.canClearNamespace || activeCount === 0
@@ -211,8 +215,8 @@ export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePicker
       ? scope.namespaceRescope
         ? `Radar is watching only ${scope.cacheScopeNamespace || triggerLabel} to stay fast on large clusters. Pick another namespace to re-point it (takes a moment; closes open terminals).`
         : `Radar is watching only ${scope.cacheScopeNamespace || triggerLabel} on this cluster.`
-      : restrictedHint
-      ? 'Limited namespace visibility — only namespaces granted by your RBAC are shown.'
+      : !isAuthoritative
+      ? 'Incomplete list - your account can\'t list namespaces. Open and see how to add yours'
       : isClusterWide
         ? 'Currently viewing all namespaces. Click to narrow the view.'
         : activeCount === 1
@@ -257,7 +261,7 @@ export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePicker
           )}
           {isClusterWide ? (
             <Globe className="w-3.5 h-3.5 shrink-0 text-theme-text-tertiary" />
-          ) : restrictedHint ? (
+          ) : !isAuthoritative ? (
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-theme-text-tertiary" />
           ) : null}
           <span className={`font-medium truncate ${variant === 'segment' ? 'min-w-0' : 'max-w-[180px]'}`}>
@@ -299,7 +303,7 @@ export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePicker
                 <ul className="max-h-80 overflow-y-auto py-1">
                   {filteredItems.length === 0 && (
                     <li className="px-3 py-2 text-xs text-theme-text-tertiary">
-                      {search ? 'No matches.' : 'No namespaces available.'}
+                      {search ? 'No matches.' : emptyStateLabel}
                     </li>
                   )}
 
@@ -346,18 +350,16 @@ export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePicker
                 onSearchChange={setSearch}
                 searchPlaceholder="Filter namespaces"
                 summaryEmptyLabel="All namespaces"
-                noItemsLabel="No namespaces available."
+                noItemsLabel={emptyStateLabel}
                 clearAllDisabled={!canClearAll || activeCount === 0}
                 clearAllAriaLabel="Clear namespace selection"
                 renderItemMeta={renderNamespaceMeta}
               />
             )}
 
-            {!scope.authoritative && (
-              <div className="px-3 py-2 border-t border-theme-border text-[11px] status-degraded">
-                Limited list — your RBAC doesn&rsquo;t allow listing all
-                namespaces. Other namespaces may be accessible but won&rsquo;t
-                appear here until you switch context.
+            {!isAuthoritative && (
+              <div className="px-3 py-2 border-t border-theme-border text-[11px] text-theme-text-secondary">
+                {limitedListHelp || 'Incomplete list - your account can\'t list namespaces.'}
               </div>
             )}
           </div>,

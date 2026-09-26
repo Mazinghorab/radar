@@ -1,5 +1,5 @@
 import { forwardRef } from 'react'
-import { NamespacePicker, type NamespacePickerHandle } from '@skyhook-io/k8s-ui'
+import { NamespacePicker, copyText, type NamespacePickerHandle } from '@skyhook-io/k8s-ui'
 import { useNamespaceScope, useSetActiveNamespace } from '../api/client'
 
 export type NamespaceSwitcherHandle = NamespacePickerHandle
@@ -24,6 +24,31 @@ export const NamespaceSwitcher = forwardRef<NamespaceSwitcherHandle, NamespaceSw
   const { data: scope, isLoading } = useNamespaceScope()
   const setActive = useSetActiveNamespace()
 
+  const customHelpText = (
+    <>
+    Can&rsquo;t see a namespace? Your account can&rsquo;t list namespaces, so Radar only shows the ones it&rsquo;s been given. Add every namespace you use, then restart Radar:
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      <code
+        className="cursor-pointer hover:bg-theme-hover px-1 rounded"
+        onClick={() => copyText('--namespaces team-a, team-b')}
+        title="Copy CLI flag"
+      >
+        --namespaces team-a, team-b
+      </code>
+      <span>or</span>
+      <code
+        className="cursor-pointer hover:bg-theme-hover px-1 rounded"
+        onClick={() => copyText('"namespaces": ["team-a", "team-b"]')}
+        title="Copy config.json snippet"
+      >
+        "namespaces": [...]
+      </code>
+      {/* Adjust the href to point to your actual hosted docs anchor */}
+      <span>in <code>~/.radar/config.json</code> &middot; <a href="https://radar.skyhook.io/docs/configuration#namespace-picker" target="_blank" rel="noreferrer" className="text-theme-interactive hover:underline">Learn more</a></span>
+      </div>
+      </>
+  )
+
   return (
     <NamespacePicker
       ref={ref}
@@ -36,6 +61,7 @@ export const NamespaceSwitcher = forwardRef<NamespaceSwitcherHandle, NamespaceSw
       className={className}
       variant={variant}
       label={label}
+      limitedListHelp={customHelpText}
     />
   )
 })
