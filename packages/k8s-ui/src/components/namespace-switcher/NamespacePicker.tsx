@@ -1,10 +1,9 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, Globe, Search, AlertTriangle } from 'lucide-react'
+import { ChevronDown, Globe, Search } from 'lucide-react'
 import { Badge } from '../ui/Badge'
 import { Tooltip } from '../ui/Tooltip'
 import { MultiSelectPicker } from '../ui/MultiSelectPicker'
-import { ReactNode } from 'react'
 
 /**
  * Backend-reported namespace scope. Mirrors Radar's `/cluster/namespace-scope`
@@ -58,7 +57,11 @@ export interface NamespacePickerProps {
   variant?: 'chip' | 'segment'
   /** Muted label shown before the value in the 'segment' variant (e.g. "Namespace"). */
   label?: string
-  
+  /**
+   * A short action (e.g. a "How to add namespaces" link) for when the list is
+   * not authoritative and the viewer can supply namespaces themselves. Omit it
+   * when the viewer can't act — the picker then says nothing about the list.
+   */
   limitedListHelp?: ReactNode
 }
 
@@ -204,9 +207,9 @@ export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePicker
   const triggerLabel =
     activeCount === 0 ? 'All namespaces' : activeCount === 1 ? scopeActives[0] : `${activeCount} namespaces`
   const isClusterWide = activeCount === 0
-  const isAuthoritative = scope.authoritative ?? true
-  const emptyStateLabel = !isAuthoritative ? 'No namespaces known yet - see below.' : 'No namespaces available'
   const cacheScopeLocked = scope.cacheScoped && !scope.namespaceRescope
+  const needsNamespaces = scope.authoritative === false && limitedListHelp != null
+  const emptyStateLabel = needsNamespaces ? 'No namespaces yet.' : 'No namespaces available.'
   const isDisabled = disabled || loading || pending || cacheScopeLocked
   const canClearAll = scope.canClearNamespace || activeCount === 0
   const tooltipContent = disabled && disabledTooltip
@@ -215,8 +218,10 @@ export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePicker
       ? scope.namespaceRescope
         ? `Radar is watching only ${scope.cacheScopeNamespace || triggerLabel} to stay fast on large clusters. Pick another namespace to re-point it (takes a moment; closes open terminals).`
         : `Radar is watching only ${scope.cacheScopeNamespace || triggerLabel} on this cluster.`
-      : !isAuthoritative
-      ? `Incomplete list - your account can't list namespaces.${limitedListHelp ? ' Open and see how to add yours.' : ''}`
+      : needsNamespaces && isClusterWide
+      ? 'Radar can\u2019t list namespaces on this cluster.'
+      : scope.authoritative === false && isClusterWide
+      ? 'Showing the namespaces your account can access.'
       : isClusterWide
         ? 'Currently viewing all namespaces. Click to narrow the view.'
         : activeCount === 1
@@ -259,11 +264,7 @@ export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePicker
           {label && (
             <span className="shrink-0 font-normal text-theme-text-tertiary">{label}</span>
           )}
-          {isClusterWide ? (
-            <Globe className="w-3.5 h-3.5 shrink-0 text-theme-text-tertiary" />
-          ) : !isAuthoritative ? (
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-theme-text-tertiary" />
-          ) : null}
+          {isClusterWide && <Globe className="w-3.5 h-3.5 shrink-0 text-theme-text-tertiary" />}
           <span className={`font-medium truncate ${variant === 'segment' ? 'min-w-0' : 'max-w-[180px]'}`}>
             {pending ? 'Switching…' : triggerLabel}
           </span>
@@ -357,9 +358,9 @@ export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePicker
               />
             )}
 
-            {!isAuthoritative && (
+            {needsNamespaces && (
               <div className="px-3 py-2 border-t border-theme-border text-[11px] text-theme-text-secondary">
-                {limitedListHelp || 'Incomplete list - your account can\'t list namespaces.'}
+                Missing a namespace? {limitedListHelp}
               </div>
             )}
           </div>,

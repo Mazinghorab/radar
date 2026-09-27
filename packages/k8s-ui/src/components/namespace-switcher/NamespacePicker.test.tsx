@@ -1,11 +1,17 @@
-// packages/k8s-ui/src/components/namespace-switcher/NamespacePicker.test.tsx
 // @vitest-environment jsdom
 import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { NamespacePicker } from './NamespacePicker'
+import { NamespacePicker, type NamespacePickerProps, type NamespaceScopeView } from './NamespacePicker'
 
-vi.mock('../ui/Tooltip', () => ({ Tooltip: ({ children }: { children: ReactNode }) => children }))
+vi.mock('../ui/Tooltip', () => ({
+  Tooltip: ({ children, content }: { children: ReactNode; content: ReactNode }) => (
+    <>
+      {children}
+      <span data-testid="tooltip">{content}</span>
+    </>
+  ),
+}))
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 let root: Root
@@ -19,72 +25,91 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount())
   document.body.replaceChildren()
-  vi.unstubAllGlobals()
 })
 
-const mockBaseScope = {
+const baseScope: NamespaceScopeView = {
   actives: ['team-a'],
-  accessibleNamespaces: ['team-a', 'team-b'],
+  accessibleNamespaces: ['team-a'],
   kubeconfigNamespace: 'team-a',
   deniedNamespaces: [],
-  mode: 'namespace' as const,
+  mode: 'namespace',
   cacheScoped: false,
   namespaceRescope: false,
   canClearNamespace: true,
+  authoritative: false,
 }
 
-describe('NamespacePicker - Authoritative Logic', () => {
-  it.each(['namespace', 'restricted'] as const)(
-    'renders the generic fallback text when authoritative is false and no help prop is provided in %s mode',
-    async (mode) => {
-      await act(async () => {
-        root.render(
-          <NamespacePicker 
-            scope={{ ...mockBaseScope, authoritative: false, mode }} 
-            onApply={vi.fn()} 
-          />
-        )
-      })
-      
-      const triggerBtn = Array.from(document.querySelectorAll('button')).find(el => el.getAttribute('aria-label') === 'Switch active namespaces')
-      await act(async () => { triggerBtn!.click() })
-      
-      expect(document.body.textContent).toContain("account can't list namespaces")
-    }
-  )
+const help = <a data-testid="help">How to add namespaces</a>
 
-  it('renders the host-supplied help text when authoritative is false and limitedListHelp is provided', async () => {
-    await act(async () => {
-      root.render(
-        <NamespacePicker 
-          scope={{ ...mockBaseScope, authoritative: false }} 
-          onApply={vi.fn()} 
-          limitedListHelp={<span data-testid="custom-help">Custom CLI instructions</span>}
-        />
-      )
-    })
-    
-    const triggerBtn = Array.from(document.querySelectorAll('button')).find(el => el.getAttribute('aria-label') === 'Switch active namespaces')
-    await act(async () => { triggerBtn!.click() })
-    
-    expect(document.querySelector('[data-testid="custom-help"]')).not.toBeNull()
-    expect(document.body.textContent).not.toContain("account can't list namespaces")
+async function renderOpen(scope: Partial<NamespaceScopeView>, props: Partial<NamespacePickerProps> = {}) {
+  await act(async () => {
+    root.render(<NamespacePicker scope={{ ...baseScope, ...scope }} onApply={vi.fn()} {...props} />)
+  })
+  const trigger = document.querySelector<HTMLButtonElement>('button[aria-label="Switch active namespaces"]')!
+  const warning = trigger.querySelector('.lucide-triangle-alert, .lucide-alert-triangle') !== null
+  const tooltip = document.querySelector('[data-testid="tooltip"]')?.textContent ?? ''
+  await act(async () => { trigger.click() })
+  return { warning, tooltip, text: document.body.textContent ?? '' }
+}
+
+describe('NamespacePicker incomplete-list notice', () => {
+  it.each(['namespace', 'restricted'] as const)('offers the host action for a non-authoritative list in %s mode', async (mode) => {
+    const { text } = await renderOpen({ mode }, { limitedListHelp: help })
+    expect(text).toContain('Missing a namespace?')
+    expect(document.querySelector('[data-testid="help"]')).not.toBeNull()
   })
 
-  it('hides the footer completely when authoritative is true', async () => {
-    await act(async () => {
-      root.render(
-        <NamespacePicker 
-          scope={{ ...mockBaseScope, authoritative: true }} 
-          onApply={vi.fn()} 
-        />
-      )
-    })
-    
-    const triggerBtn = Array.from(document.querySelectorAll('button')).find(el => el.getAttribute('aria-label') === 'Switch active namespaces')
-    await act(async () => { triggerBtn!.click() })
-    
-    expect(document.body.textContent).not.toContain("account can't list namespaces")
-    expect(document.querySelector('[data-testid="custom-help"]')).toBeNull()
+  it('says nothing about the list when the host has no action to offer', async () => {
+    const { warning, text } = await renderOpen({})
+    expect(warning).toBe(false)
+    expect(text).not.toContain('Missing a namespace?')
+  })
+
+  it('says nothing when the list is authoritative', async () => {
+    const { warning, text } = await renderOpen({ authoritative: true }, { limitedListHelp: help })
+    expect(warning).toBe(false)
+    expect(text).not.toContain('Missing a namespace?')
+    expect(document.querySelector('[data-testid="help"]')).toBeNull()
+  })
+
+  it('points an empty list at the note below it', async () => {
+    const { text } = await renderOpen(
+      { actives: [], accessibleNamespaces: [], mode: 'restricted' },
+      { limitedListHelp: help },
+    )
+    expect(text).toContain('No namespaces yet.')
+    expect(text).toContain('Missing a namespace?')
+  })
+
+  // The picker can't tell an unconfigured list from a configured or timed-out
+  // one, so a standing warning icon would nag users who have nothing to fix.
+  it('never puts a warning icon on the trigger', async () => {
+    const { warning } = await renderOpen({ mode: 'namespace' }, { limitedListHelp: help })
+    expect(warning).toBe(false)
+  })
+
+  it('says Radar can\u2019t list namespaces when the host can help and nothing is picked', async () => {
+    const { tooltip } = await renderOpen({ actives: [], mode: 'restricted' }, { limitedListHelp: help })
+    expect(tooltip).toBe('Radar can\u2019t list namespaces on this cluster.')
+  })
+
+  // A picked view keeps describing its filter; the footer carries the help.
+  it('keeps the filter tooltip once a namespace is picked', async () => {
+    const { tooltip, text } = await renderOpen({ mode: 'namespace' }, { limitedListHelp: help })
+    expect(tooltip).toBe('View is filtered to namespace team-a. Click to switch or reset.')
+    expect(text).toContain('Missing a namespace?')
+  })
+
+  // Without a host action the list is usually the viewer's complete RBAC view
+  // (auth-enabled installs, Radar Cloud), so say what it is rather than warn.
+  it('describes an RBAC-scoped list with nothing picked', async () => {
+    const { tooltip, text } = await renderOpen({ actives: [], mode: 'restricted' })
+    expect(tooltip).toBe('Showing the namespaces your account can access.')
+    expect(text).not.toContain('Missing a namespace?')
+  })
+
+  it('keeps the usual tooltip for an authoritative list', async () => {
+    const { tooltip } = await renderOpen({ actives: [], mode: 'cluster-wide', authoritative: true })
+    expect(tooltip).toBe('Currently viewing all namespaces. Click to narrow the view.')
   })
 })

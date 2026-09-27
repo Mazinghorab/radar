@@ -1,8 +1,10 @@
 import { forwardRef } from 'react'
-import { NamespacePicker, copyText, type NamespacePickerHandle } from '@skyhook-io/k8s-ui'
-import { useNamespaceScope, useSetActiveNamespace } from '../api/client'
+import { NamespacePicker, type NamespacePickerHandle } from '@skyhook-io/k8s-ui'
+import { useAuthMe, useCapabilities, useNamespaceScope, useSetActiveNamespace } from '../api/client'
 
 export type NamespaceSwitcherHandle = NamespacePickerHandle
+
+const NAMESPACES_HELP_URL = 'https://radarhq.io/docs/configuration/files#namespaces-missing-from-the-picker'
 
 interface NamespaceSwitcherProps {
   className?: string
@@ -24,29 +26,18 @@ export const NamespaceSwitcher = forwardRef<NamespaceSwitcherHandle, NamespaceSw
   const { data: scope, isLoading } = useNamespaceScope()
   const setActive = useSetActiveNamespace()
 
-  const customHelpText = (
-    <>
-    Can&rsquo;t see a namespace? Your account can&rsquo;t list namespaces, so Radar only shows the ones it&rsquo;s been given. If you run Radar locally, add every namespace you use, then restart Radar:
-      <div className="mt-1 flex flex-wrap items-center gap-1">
-      <code
-        className="cursor-pointer hover:bg-theme-hover px-1 rounded"
-        onClick={() => copyText('--namespaces team-a,team-b')}
-        title="Copy CLI flag"
-      >
-        --namespaces team-a,team-b
-      </code>
-      <span>or</span>
-      <code
-        className="cursor-pointer hover:bg-theme-hover px-1 rounded"
-        onClick={() => copyText('{ "namespaces": ["team-a", "team-b"] }')}
-        title="Copy config.json snippet"
-      >
-        "namespaces": [...]
-      </code>
-      <span>in <code>~/.radar/config.json</code> &middot; <a href="https://radarhq.io/docs/configuration/files#namespace-picker" target="_blank" rel="noreferrer" className="text-theme-interactive hover:underline">Learn more</a></span>
-    </div>
-    </>
-  )
+  const { data: capabilities } = useCapabilities()
+  const { data: authMe } = useAuthMe()
+  // --namespaces and ~/.radar/config.json only reach a Radar the user launched
+  // themselves. With auth enabled, a non-authoritative list is also the
+  // per-user RBAC filter on a shared install, where neither applies.
+  const canConfigureNamespaces = capabilities?.deployment?.mode === 'local' && authMe?.authEnabled === false
+
+  const limitedListHelp = canConfigureNamespaces ? (
+    <a href={NAMESPACES_HELP_URL} target="_blank" rel="noreferrer" className="text-accent-text hover:underline">
+      How to add namespaces
+    </a>
+  ) : undefined
 
   return (
     <NamespacePicker
@@ -60,7 +51,7 @@ export const NamespaceSwitcher = forwardRef<NamespaceSwitcherHandle, NamespaceSw
       className={className}
       variant={variant}
       label={label}
-      limitedListHelp={customHelpText}
+      limitedListHelp={limitedListHelp}
     />
   )
 })
