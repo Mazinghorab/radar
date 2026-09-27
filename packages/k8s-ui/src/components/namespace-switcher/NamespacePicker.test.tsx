@@ -34,23 +34,24 @@ const mockBaseScope = {
 }
 
 describe('NamespacePicker - Authoritative Logic', () => {
-  it('renders the generic fallback text when authoritative is false and no help prop is provided', async () => {
-    await act(async () => {
-      root.render(
-        <NamespacePicker 
-          scope={{ ...mockBaseScope, authoritative: false }} 
-          onApply={vi.fn()} 
-        />
-      )
-    })
-    
-    // Open the dropdown
-    const triggerBtn = Array.from(document.querySelectorAll('button')).find(el => el.getAttribute('aria-label') === 'Switch active namespaces')
-    await act(async () => { triggerBtn!.click() })
-    
-    // The generic fallback text should be visible
-    expect(document.body.textContent).toContain("account can't list namespaces")
-  })
+  it.each(['namespace', 'restricted'] as const)(
+    'renders the generic fallback text when authoritative is false and no help prop is provided in %s mode',
+    async (mode) => {
+      await act(async () => {
+        root.render(
+          <NamespacePicker 
+            scope={{ ...mockBaseScope, authoritative: false, mode }} 
+            onApply={vi.fn()} 
+          />
+        )
+      })
+      
+      const triggerBtn = Array.from(document.querySelectorAll('button')).find(el => el.getAttribute('aria-label') === 'Switch active namespaces')
+      await act(async () => { triggerBtn!.click() })
+      
+      expect(document.body.textContent).toContain("account can't list namespaces")
+    }
+  )
 
   it('renders the host-supplied help text when authoritative is false and limitedListHelp is provided', async () => {
     await act(async () => {
@@ -66,7 +67,6 @@ describe('NamespacePicker - Authoritative Logic', () => {
     const triggerBtn = Array.from(document.querySelectorAll('button')).find(el => el.getAttribute('aria-label') === 'Switch active namespaces')
     await act(async () => { triggerBtn!.click() })
     
-    // The injected prop should render, and the fallback should not
     expect(document.querySelector('[data-testid="custom-help"]')).not.toBeNull()
     expect(document.body.textContent).not.toContain("account can't list namespaces")
   })
@@ -84,7 +84,6 @@ describe('NamespacePicker - Authoritative Logic', () => {
     const triggerBtn = Array.from(document.querySelectorAll('button')).find(el => el.getAttribute('aria-label') === 'Switch active namespaces')
     await act(async () => { triggerBtn!.click() })
     
-    // Neither the fallback nor the warning should be in the DOM
     expect(document.body.textContent).not.toContain("account can't list namespaces")
     expect(document.querySelector('[data-testid="custom-help"]')).toBeNull()
   })

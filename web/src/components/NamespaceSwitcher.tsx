@@ -30,23 +30,22 @@ export const NamespaceSwitcher = forwardRef<NamespaceSwitcherHandle, NamespaceSw
     <div className="mt-1 flex flex-wrap items-center gap-1">
       <code
         className="cursor-pointer hover:bg-theme-hover px-1 rounded"
-        onClick={() => copyText('--namespaces team-a, team-b')}
+        onClick={() => copyText('--namespaces team-a,team-b')}
         title="Copy CLI flag"
       >
-        --namespaces team-a, team-b
+        --namespaces team-a,team-b
       </code>
       <span>or</span>
       <code
         className="cursor-pointer hover:bg-theme-hover px-1 rounded"
-        onClick={() => copyText('"namespaces": ["team-a", "team-b"]')}
+        onClick={() => copyText('{ "namespaces": ["team-a", "team-b"] }')}
         title="Copy config.json snippet"
       >
         "namespaces": [...]
       </code>
-      {/* Adjust the href to point to your actual hosted docs anchor */}
-      <span>in <code>~/.radar/config.json</code> &middot; <a href="https://radar.skyhook.io/docs/configuration#namespace-picker" target="_blank" rel="noreferrer" className="text-theme-interactive hover:underline">Learn more</a></span>
-      </div>
-      </>
+      <span>in <code>~/.radar/config.json</code> &middot; <a href="https://radarhq.io/docs/configuration/files#namespace-picker" target="_blank" rel="noreferrer" className="text-theme-interactive hover:underline">Learn more</a></span>
+    </div>
+    </>
   )
 
   return (
