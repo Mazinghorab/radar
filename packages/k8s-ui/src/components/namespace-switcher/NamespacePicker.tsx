@@ -216,7 +216,7 @@ export const NamespacePicker = forwardRef<NamespacePickerHandle, NamespacePicker
         ? `Radar is watching only ${scope.cacheScopeNamespace || triggerLabel} to stay fast on large clusters. Pick another namespace to re-point it (takes a moment; closes open terminals).`
         : `Radar is watching only ${scope.cacheScopeNamespace || triggerLabel} on this cluster.`
       : !isAuthoritative
-      ? 'Incomplete list - your account can\'t list namespaces. Open and see how to add yours'
+      ? `Incomplete list - your account can't list namespaces.${limitedListHelp ? ' Open and see how to add yours.' : ''}`
       : isClusterWide
         ? 'Currently viewing all namespaces. Click to narrow the view.'
         : activeCount === 1

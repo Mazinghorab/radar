@@ -26,8 +26,8 @@ export const NamespaceSwitcher = forwardRef<NamespaceSwitcherHandle, NamespaceSw
 
   const customHelpText = (
     <>
-    Can&rsquo;t see a namespace? Your account can&rsquo;t list namespaces, so Radar only shows the ones it&rsquo;s been given. Add every namespace you use, then restart Radar:
-    <div className="mt-1 flex flex-wrap items-center gap-1">
+    Can&rsquo;t see a namespace? Your account can&rsquo;t list namespaces, so Radar only shows the ones it&rsquo;s been given. If you run Radar locally, add every namespace you use, then restart Radar:
+      <div className="mt-1 flex flex-wrap items-center gap-1">
       <code
         className="cursor-pointer hover:bg-theme-hover px-1 rounded"
         onClick={() => copyText('--namespaces team-a,team-b')}
